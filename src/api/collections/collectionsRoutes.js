@@ -1,51 +1,25 @@
 const express = require("express");
 const router = express.Router();
 
-// TODO: Import collections controller
-// const collectionsController = require('../../controllers/collectionsController');
+const collectionsController = require("../../controllers/collectionsController");
 
 // Collections routes
-router.get("/", (req, res) => {
-  res
-    .status(501)
-    .json({ message: "Get user collections endpoint - not implemented yet" });
-});
+router.get("/", collectionsController.getUserCollections);
 
-router.get("/:id", (req, res) => {
-  res
-    .status(501)
-    .json({ message: "Get collection by ID endpoint - not implemented yet" });
-});
+router.get("/:id", collectionsController.getCollectionById);
 
-router.post("/", (req, res) => {
-  res
-    .status(501)
-    .json({ message: "Create collection endpoint - not implemented yet" });
-});
+router.post("/", collectionsController.createCollection);
 
-router.put("/:id", (req, res) => {
-  res
-    .status(501)
-    .json({ message: "Update collection endpoint - not implemented yet" });
-});
+router.put("/:id", collectionsController.updateCollection);
 
-router.delete("/:id", (req, res) => {
-  res
-    .status(501)
-    .json({ message: "Delete collection endpoint - not implemented yet" });
-});
+router.delete("/:id", collectionsController.deleteCollection);
 
 // Collection books management
-router.post("/:id/books", (req, res) => {
-  res
-    .status(501)
-    .json({ message: "Add book to collection endpoint - not implemented yet" });
-});
+router.post("/:id/books", collectionsController.addBookToCollection);
 
-router.delete("/:id/books/:bookId", (req, res) => {
-  res.status(501).json({
-    message: "Remove book from collection endpoint - not implemented yet",
-  });
-});
+router.delete(
+  "/:id/books/:bookId",
+  collectionsController.removeBookFromCollection
+);
 
 module.exports = router;

@@ -7,7 +7,13 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "migrate": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback",
+    "migrate:make": "knex migrate:make",
+    "seed": "knex seed:run",
+    "seed:make": "knex seed:make",
+    "db:reset": "knex migrate:rollback --all && knex migrate:latest && knex seed:run"
   },
   "keywords": [],
   "author": "",
