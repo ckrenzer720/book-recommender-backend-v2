@@ -1,29 +1,58 @@
 const Collection = require("../models/Collection");
 const Book = require("../models/Book");
+const User = require("../models/User");
 
 // Get user collections
 const getUserCollections = async (req, res) => {
   try {
     const { page = 1, limit = 10, isPublic } = req.query;
 
-    const filter = { user: req.userId };
+    const offset = (page - 1) * limit;
+    let collections = [];
+    let total = 0;
+
     if (isPublic !== undefined) {
-      filter.isPublic = isPublic === "true";
+      // Filter by public status
+      collections = await Collection.findByUser(
+        req.userId,
+        parseInt(limit),
+        offset
+      );
+      total = await Collection.countByUser(req.userId);
+    } else {
+      collections = await Collection.findByUser(
+        req.userId,
+        parseInt(limit),
+        offset
+      );
+      total = await Collection.countByUser(req.userId);
     }
 
-    const skip = (page - 1) * limit;
-
-    const collections = await Collection.find(filter)
-      .limit(parseInt(limit))
-      .skip(skip)
-      .populate("books.book", "title author coverImage averageRating");
-
-    const total = await Collection.countDocuments(filter);
+    // Add books to each collection
+    const collectionsWithBooks = await Promise.all(
+      collections.map(async (collection) => {
+        const books = await Collection.getBooks(collection.id, 5, 0); // Get first 5 books
+        return {
+          ...collection,
+          books: books.map((book) => ({
+            book: {
+              id: book.book_id,
+              title: book.title,
+              author: book.author,
+              cover_image: book.cover_image,
+              average_rating: book.average_rating,
+            },
+            added_at: book.added_at,
+            notes: book.notes,
+          })),
+        };
+      })
+    );
 
     res.json({
       success: true,
       data: {
-        collections,
+        collections: collectionsWithBooks,
         pagination: {
           currentPage: parseInt(page),
           totalPages: Math.ceil(total / limit),
@@ -48,12 +77,7 @@ const getCollectionById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const collection = await Collection.findById(id)
-      .populate("user", "username")
-      .populate(
-        "books.book",
-        "title author coverImage averageRating totalRatings genre"
-      );
+    const collection = await Collection.findById(id);
 
     if (!collection) {
       return res.status(404).json({
@@ -63,16 +87,40 @@ const getCollectionById = async (req, res) => {
     }
 
     // Check if user can access this collection
-    if (!collection.isPublic && collection.user._id.toString() !== req.userId) {
+    if (!collection.is_public && collection.user_id !== req.userId) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to access this collection",
       });
     }
 
+    // Get user information
+    const user = await User.findById(collection.user_id);
+
+    // Get books in collection
+    const books = await Collection.getBooks(collection.id);
+
+    const collectionWithDetails = {
+      ...collection,
+      user: user ? { id: user.id, username: user.username } : null,
+      books: books.map((book) => ({
+        book: {
+          id: book.book_id,
+          title: book.title,
+          author: book.author,
+          cover_image: book.cover_image,
+          average_rating: book.average_rating,
+          total_ratings: book.total_ratings,
+          genre: book.genre,
+        },
+        added_at: book.added_at,
+        notes: book.notes,
+      })),
+    };
+
     res.json({
       success: true,
-      data: { collection },
+      data: { collection: collectionWithDetails },
     });
   } catch (error) {
     console.error("Get collection by ID error:", error);
@@ -89,30 +137,35 @@ const createCollection = async (req, res) => {
   try {
     const { name, description, isPublic, coverImage, tags } = req.body;
 
-    const collection = new Collection({
+    const collection = await Collection.create({
       name,
       description,
-      user: req.userId,
-      isPublic: isPublic !== undefined ? isPublic : true,
-      coverImage,
-      tags,
+      user_id: req.userId,
+      is_public: isPublic !== undefined ? isPublic : true,
+      cover_image: coverImage,
     });
 
-    await collection.save();
+    // Add tags if provided
+    if (tags && tags.length > 0) {
+      await Collection.addTags(collection.id, tags);
+    }
 
-    const populatedCollection = await Collection.findById(
-      collection._id
-    ).populate("user", "username");
+    // Get user information
+    const user = await User.findById(collection.user_id);
+    const collectionWithUser = {
+      ...collection,
+      user: user ? { id: user.id, username: user.username } : null,
+    };
 
     res.status(201).json({
       success: true,
       message: "Collection created successfully",
-      data: { collection: populatedCollection },
+      data: { collection: collectionWithUser },
     });
   } catch (error) {
     console.error("Create collection error:", error);
 
-    if (error.name === "ValidationError") {
+    if (error.code === "SQLITE_CONSTRAINT") {
       return res.status(400).json({
         success: false,
         message: "Validation error",
@@ -144,30 +197,31 @@ const updateCollection = async (req, res) => {
     }
 
     // Check if user is authorized to update this collection
-    if (collection.user.toString() !== req.userId) {
+    if (collection.user_id !== req.userId) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to update this collection",
       });
     }
 
-    const updatedCollection = await Collection.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    )
-      .populate("user", "username")
-      .populate("books.book", "title author coverImage");
+    const updatedCollection = await Collection.updateById(id, updateData);
+
+    // Get user information
+    const user = await User.findById(updatedCollection.user_id);
+    const collectionWithUser = {
+      ...updatedCollection,
+      user: user ? { id: user.id, username: user.username } : null,
+    };
 
     res.json({
       success: true,
       message: "Collection updated successfully",
-      data: { collection: updatedCollection },
+      data: { collection: collectionWithUser },
     });
   } catch (error) {
     console.error("Update collection error:", error);
 
-    if (error.name === "ValidationError") {
+    if (error.code === "SQLITE_CONSTRAINT") {
       return res.status(400).json({
         success: false,
         message: "Validation error",
@@ -198,14 +252,14 @@ const deleteCollection = async (req, res) => {
     }
 
     // Check if user is authorized to delete this collection
-    if (collection.user.toString() !== req.userId) {
+    if (collection.user_id !== req.userId) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to delete this collection",
       });
     }
 
-    await Collection.findByIdAndDelete(id);
+    await Collection.deleteById(id);
 
     res.json({
       success: true,
@@ -237,7 +291,7 @@ const addBookToCollection = async (req, res) => {
     }
 
     // Check if user is authorized to modify this collection
-    if (collection.user.toString() !== req.userId) {
+    if (collection.user_id !== req.userId) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to modify this collection",
@@ -253,11 +307,27 @@ const addBookToCollection = async (req, res) => {
       });
     }
 
-    await collection.addBook(bookId, notes);
+    await Collection.addBook(id, bookId, notes);
 
-    const updatedCollection = await Collection.findById(id)
-      .populate("user", "username")
-      .populate("books.book", "title author coverImage averageRating");
+    // Get updated collection with books
+    const books = await Collection.getBooks(id);
+    const user = await User.findById(collection.user_id);
+
+    const updatedCollection = {
+      ...collection,
+      user: user ? { id: user.id, username: user.username } : null,
+      books: books.map((book) => ({
+        book: {
+          id: book.book_id,
+          title: book.title,
+          author: book.author,
+          cover_image: book.cover_image,
+          average_rating: book.average_rating,
+        },
+        added_at: book.added_at,
+        notes: book.notes,
+      })),
+    };
 
     res.json({
       success: true,
@@ -289,18 +359,34 @@ const removeBookFromCollection = async (req, res) => {
     }
 
     // Check if user is authorized to modify this collection
-    if (collection.user.toString() !== req.userId) {
+    if (collection.user_id !== req.userId) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to modify this collection",
       });
     }
 
-    await collection.removeBook(bookId);
+    await Collection.removeBook(id, bookId);
 
-    const updatedCollection = await Collection.findById(id)
-      .populate("user", "username")
-      .populate("books.book", "title author coverImage averageRating");
+    // Get updated collection with books
+    const books = await Collection.getBooks(id);
+    const user = await User.findById(collection.user_id);
+
+    const updatedCollection = {
+      ...collection,
+      user: user ? { id: user.id, username: user.username } : null,
+      books: books.map((book) => ({
+        book: {
+          id: book.book_id,
+          title: book.title,
+          author: book.author,
+          cover_image: book.cover_image,
+          average_rating: book.average_rating,
+        },
+        added_at: book.added_at,
+        notes: book.notes,
+      })),
+    };
 
     res.json({
       success: true,

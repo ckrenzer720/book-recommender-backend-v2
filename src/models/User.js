@@ -1,108 +1,119 @@
-const mongoose = require("mongoose");
+const db = require("../database/connection");
 const bcrypt = require("bcryptjs");
 
-const userSchema = new mongoose.Schema(
-  {
-    username: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-      minlength: 3,
-      maxlength: 30,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-      lowercase: true,
-    },
-    password: {
-      type: String,
-      required: true,
-      minlength: 6,
-    },
-    firstName: {
-      type: String,
-      trim: true,
-      maxlength: 50,
-    },
-    lastName: {
-      type: String,
-      trim: true,
-      maxlength: 50,
-    },
-    profilePicture: {
-      type: String,
-      default: null,
-    },
-    bio: {
-      type: String,
-      maxlength: 500,
-      default: "",
-    },
-    preferences: {
-      favoriteGenres: [
-        {
-          type: String,
-          enum: [
-            "fiction",
-            "non-fiction",
-            "mystery",
-            "romance",
-            "sci-fi",
-            "fantasy",
-            "biography",
-            "history",
-            "self-help",
-            "other",
-          ],
-        },
-      ],
-      readingLevel: {
-        type: String,
-        enum: ["beginner", "intermediate", "advanced"],
-        default: "intermediate",
-      },
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
-    lastLogin: {
-      type: Date,
-      default: Date.now,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
+class User {
+  static tableName = "users";
 
-// Hash password before saving
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  // Create a new user
+  static async create(userData) {
+    const { password, ...otherData } = userData;
 
-  try {
+    // Hash password
     const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const [user] = await db(this.tableName)
+      .insert({
+        ...otherData,
+        password: hashedPassword,
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+      .returning("*");
+
+    return user;
   }
-});
 
-// Method to compare password
-userSchema.methods.comparePassword = async function (candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
-};
+  // Find user by email
+  static async findByEmail(email) {
+    const [user] = await db(this.tableName)
+      .where({ email: email.toLowerCase() })
+      .select("*");
 
-// Method to get public profile (without password)
-userSchema.methods.toPublicJSON = function () {
-  const userObject = this.toObject();
-  delete userObject.password;
-  return userObject;
-};
+    return user;
+  }
 
-module.exports = mongoose.model("User", userSchema);
+  // Find user by username
+  static async findByUsername(username) {
+    const [user] = await db(this.tableName).where({ username }).select("*");
+
+    return user;
+  }
+
+  // Find user by ID
+  static async findById(id) {
+    const [user] = await db(this.tableName).where({ id }).select("*");
+
+    return user;
+  }
+
+  // Find user by email or username
+  static async findByEmailOrUsername(email, username) {
+    const [user] = await db(this.tableName)
+      .where({ email: email.toLowerCase() })
+      .orWhere({ username })
+      .select("*");
+
+    return user;
+  }
+
+  // Update user
+  static async updateById(id, updateData) {
+    const [user] = await db(this.tableName)
+      .where({ id })
+      .update({
+        ...updateData,
+        updated_at: new Date(),
+      })
+      .returning("*");
+
+    return user;
+  }
+
+  // Update last login
+  static async updateLastLogin(id) {
+    const [user] = await db(this.tableName)
+      .where({ id })
+      .update({
+        last_login: new Date(),
+        updated_at: new Date(),
+      })
+      .returning("*");
+
+    return user;
+  }
+
+  // Compare password
+  static async comparePassword(password, hashedPassword) {
+    return bcrypt.compare(password, hashedPassword);
+  }
+
+  // Get public user data (without password)
+  static toPublicJSON(user) {
+    const { password, ...publicUser } = user;
+    return publicUser;
+  }
+
+  // Get all users (for admin purposes)
+  static async findAll() {
+    return await db(this.tableName).select(
+      "id",
+      "username",
+      "email",
+      "first_name",
+      "last_name",
+      "profile_picture",
+      "bio",
+      "is_active",
+      "created_at",
+      "updated_at"
+    );
+  }
+
+  // Delete user
+  static async deleteById(id) {
+    return await db(this.tableName).where({ id }).del();
+  }
+}
+
+module.exports = User;

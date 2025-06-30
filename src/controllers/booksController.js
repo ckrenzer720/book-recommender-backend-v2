@@ -1,4 +1,5 @@
 const Book = require("../models/Book");
+const User = require("../models/User");
 
 // Get all books with pagination and filtering
 const getAllBooks = async (req, res) => {
@@ -12,31 +13,36 @@ const getAllBooks = async (req, res) => {
       sortOrder = "asc",
     } = req.query;
 
-    // Build filter object
-    const filter = {};
-    if (genre) filter.genre = genre;
+    const offset = (page - 1) * limit;
+    let books = [];
+    let total = 0;
+
     if (search) {
-      filter.$text = { $search: search };
+      books = await Book.search(search, parseInt(limit), offset);
+      total = await Book.count();
+    } else if (genre) {
+      books = await Book.findByGenre(genre, parseInt(limit), offset);
+      total = await Book.countByGenre(genre);
+    } else {
+      books = await Book.findAll(parseInt(limit), offset);
+      total = await Book.count();
     }
 
-    // Build sort object
-    const sort = {};
-    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
-
-    const skip = (page - 1) * limit;
-
-    const books = await Book.find(filter)
-      .sort(sort)
-      .limit(parseInt(limit))
-      .skip(skip)
-      .populate("addedBy", "username");
-
-    const total = await Book.countDocuments(filter);
+    // Add user information to books
+    const booksWithUser = await Promise.all(
+      books.map(async (book) => {
+        const user = await User.findById(book.added_by);
+        return {
+          ...book,
+          addedBy: user ? { id: user.id, username: user.username } : null,
+        };
+      })
+    );
 
     res.json({
       success: true,
       data: {
-        books,
+        books: booksWithUser,
         pagination: {
           currentPage: parseInt(page),
           totalPages: Math.ceil(total / limit),
@@ -61,7 +67,7 @@ const getBookById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const book = await Book.findById(id).populate("addedBy", "username");
+    const book = await Book.findById(id);
 
     if (!book) {
       return res.status(404).json({
@@ -70,9 +76,16 @@ const getBookById = async (req, res) => {
       });
     }
 
+    // Get user information
+    const user = await User.findById(book.added_by);
+    const bookWithUser = {
+      ...book,
+      addedBy: user ? { id: user.id, username: user.username } : null,
+    };
+
     res.json({
       success: true,
-      data: { book },
+      data: { book: bookWithUser },
     });
   } catch (error) {
     console.error("Get book by ID error:", error);
@@ -89,29 +102,30 @@ const createBook = async (req, res) => {
   try {
     const bookData = {
       ...req.body,
-      addedBy: req.userId, // From auth middleware
+      added_by: req.userId, // From auth middleware
     };
 
-    const book = new Book(bookData);
-    await book.save();
+    const book = await Book.create(bookData);
 
-    const populatedBook = await Book.findById(book._id).populate(
-      "addedBy",
-      "username"
-    );
+    // Get user information
+    const user = await User.findById(book.added_by);
+    const bookWithUser = {
+      ...book,
+      addedBy: user ? { id: user.id, username: user.username } : null,
+    };
 
     res.status(201).json({
       success: true,
       message: "Book created successfully",
-      data: { book: populatedBook },
+      data: { book: bookWithUser },
     });
   } catch (error) {
     console.error("Create book error:", error);
 
-    if (error.name === "ValidationError") {
+    if (error.code === "SQLITE_CONSTRAINT") {
       return res.status(400).json({
         success: false,
-        message: "Validation error",
+        message: "Validation error - ISBN already exists",
         error: error.message,
       });
     }
@@ -140,27 +154,31 @@ const updateBook = async (req, res) => {
     }
 
     // Check if user is authorized to update this book
-    if (book.addedBy.toString() !== req.userId) {
+    if (book.added_by !== req.userId) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to update this book",
       });
     }
 
-    const updatedBook = await Book.findByIdAndUpdate(id, updateData, {
-      new: true,
-      runValidators: true,
-    }).populate("addedBy", "username");
+    const updatedBook = await Book.updateById(id, updateData);
+
+    // Get user information
+    const user = await User.findById(updatedBook.added_by);
+    const bookWithUser = {
+      ...updatedBook,
+      addedBy: user ? { id: user.id, username: user.username } : null,
+    };
 
     res.json({
       success: true,
       message: "Book updated successfully",
-      data: { book: updatedBook },
+      data: { book: bookWithUser },
     });
   } catch (error) {
     console.error("Update book error:", error);
 
-    if (error.name === "ValidationError") {
+    if (error.code === "SQLITE_CONSTRAINT") {
       return res.status(400).json({
         success: false,
         message: "Validation error",
@@ -191,14 +209,14 @@ const deleteBook = async (req, res) => {
     }
 
     // Check if user is authorized to delete this book
-    if (book.addedBy.toString() !== req.userId) {
+    if (book.added_by !== req.userId) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to delete this book",
       });
     }
 
-    await Book.findByIdAndDelete(id);
+    await Book.deleteById(id);
 
     res.json({
       success: true,
@@ -219,20 +237,33 @@ const searchBooks = async (req, res) => {
   try {
     const { q, genre, author, limit = 10 } = req.query;
 
-    const filter = {};
-    if (genre) filter.genre = genre;
-    if (author) filter.author = { $regex: author, $options: "i" };
+    let books = [];
+
     if (q) {
-      filter.$text = { $search: q };
+      books = await Book.search(q, parseInt(limit));
+    } else if (genre) {
+      books = await Book.findByGenre(genre, parseInt(limit));
+    } else if (author) {
+      // For author search, we'll need to implement this in the Book model
+      books = await Book.search(author, parseInt(limit));
+    } else {
+      books = await Book.findAll(parseInt(limit));
     }
 
-    const books = await Book.find(filter)
-      .limit(parseInt(limit))
-      .populate("addedBy", "username");
+    // Add user information to books
+    const booksWithUser = await Promise.all(
+      books.map(async (book) => {
+        const user = await User.findById(book.added_by);
+        return {
+          ...book,
+          addedBy: user ? { id: user.id, username: user.username } : null,
+        };
+      })
+    );
 
     res.json({
       success: true,
-      data: { books },
+      data: { books: booksWithUser },
     });
   } catch (error) {
     console.error("Search books error:", error);

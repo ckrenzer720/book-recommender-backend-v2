@@ -7,23 +7,14 @@ const getAllReviews = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      sortBy = "createdAt",
+      sortBy = "created_at",
       sortOrder = "desc",
     } = req.query;
 
-    const sort = {};
-    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+    const offset = (page - 1) * limit;
 
-    const skip = (page - 1) * limit;
-
-    const reviews = await Review.find({ isPublic: true })
-      .sort(sort)
-      .limit(parseInt(limit))
-      .skip(skip)
-      .populate("user", "username")
-      .populate("book", "title author coverImage");
-
-    const total = await Review.countDocuments({ isPublic: true });
+    const reviews = await Review.findWithUser(null, parseInt(limit), offset);
+    const total = await Review.countByBook(null);
 
     res.json({
       success: true,
@@ -55,28 +46,14 @@ const getReviewsByBook = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      sortBy = "createdAt",
+      sortBy = "created_at",
       sortOrder = "desc",
     } = req.query;
 
-    const sort = {};
-    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+    const offset = (page - 1) * limit;
 
-    const skip = (page - 1) * limit;
-
-    const reviews = await Review.find({
-      book: bookId,
-      isPublic: true,
-    })
-      .sort(sort)
-      .limit(parseInt(limit))
-      .skip(skip)
-      .populate("user", "username");
-
-    const total = await Review.countDocuments({
-      book: bookId,
-      isPublic: true,
-    });
+    const reviews = await Review.findWithUser(bookId, parseInt(limit), offset);
+    const total = await Review.countByBook(bookId);
 
     res.json({
       success: true,
@@ -108,28 +85,14 @@ const getReviewsByUser = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      sortBy = "createdAt",
+      sortBy = "created_at",
       sortOrder = "desc",
     } = req.query;
 
-    const sort = {};
-    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+    const offset = (page - 1) * limit;
 
-    const skip = (page - 1) * limit;
-
-    const reviews = await Review.find({
-      user: userId,
-      isPublic: true,
-    })
-      .sort(sort)
-      .limit(parseInt(limit))
-      .skip(skip)
-      .populate("book", "title author coverImage");
-
-    const total = await Review.countDocuments({
-      user: userId,
-      isPublic: true,
-    });
+    const reviews = await Review.findWithBook(userId, parseInt(limit), offset);
+    const total = await Review.countByUser(userId);
 
     res.json({
       success: true,
@@ -161,10 +124,7 @@ const createReview = async (req, res) => {
       req.body;
 
     // Check if user already reviewed this book
-    const existingReview = await Review.findOne({
-      user: req.userId,
-      book: bookId,
-    });
+    const existingReview = await Review.findByUserAndBook(req.userId, bookId);
 
     if (existingReview) {
       return res.status(400).json({
@@ -182,38 +142,36 @@ const createReview = async (req, res) => {
       });
     }
 
-    const review = new Review({
-      user: req.userId,
-      book: bookId,
+    const review = await Review.create({
+      user_id: req.userId,
+      book_id: bookId,
       rating,
       title,
       comment,
-      readingStatus,
-      dateRead,
+      reading_status: readingStatus,
+      date_read: dateRead,
     });
-
-    await review.save();
 
     // Update book's average rating
     const avgRatingData = await Review.getAverageRating(bookId);
-    await Book.findByIdAndUpdate(bookId, {
-      averageRating: avgRatingData.averageRating,
-      totalRatings: avgRatingData.totalReviews,
-    });
+    await Book.updateAverageRating(
+      bookId,
+      avgRatingData.average_rating,
+      avgRatingData.total_reviews
+    );
 
-    const populatedReview = await Review.findById(review._id)
-      .populate("user", "username")
-      .populate("book", "title author");
+    // Get review with user and book information
+    const [reviewWithDetails] = await Review.findWithUser(bookId, 1, 0);
 
     res.status(201).json({
       success: true,
       message: "Review created successfully",
-      data: { review: populatedReview },
+      data: { review: reviewWithDetails },
     });
   } catch (error) {
     console.error("Create review error:", error);
 
-    if (error.name === "ValidationError") {
+    if (error.code === "SQLITE_CONSTRAINT") {
       return res.status(400).json({
         success: false,
         message: "Validation error",
@@ -245,36 +203,35 @@ const updateReview = async (req, res) => {
     }
 
     // Check if user is authorized to update this review
-    if (review.user.toString() !== req.userId) {
+    if (review.user_id !== req.userId) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to update this review",
       });
     }
 
-    const updatedReview = await Review.findByIdAndUpdate(id, updateData, {
-      new: true,
-      runValidators: true,
-    })
-      .populate("user", "username")
-      .populate("book", "title author");
+    const updatedReview = await Review.updateById(id, updateData);
 
     // Update book's average rating
-    const avgRatingData = await Review.getAverageRating(review.book);
-    await Book.findByIdAndUpdate(review.book, {
-      averageRating: avgRatingData.averageRating,
-      totalRatings: avgRatingData.totalReviews,
-    });
+    const avgRatingData = await Review.getAverageRating(review.book_id);
+    await Book.updateAverageRating(
+      review.book_id,
+      avgRatingData.average_rating,
+      avgRatingData.total_reviews
+    );
+
+    // Get updated review with user and book information
+    const [reviewWithDetails] = await Review.findWithUser(review.book_id, 1, 0);
 
     res.json({
       success: true,
       message: "Review updated successfully",
-      data: { review: updatedReview },
+      data: { review: reviewWithDetails },
     });
   } catch (error) {
     console.error("Update review error:", error);
 
-    if (error.name === "ValidationError") {
+    if (error.code === "SQLITE_CONSTRAINT") {
       return res.status(400).json({
         success: false,
         message: "Validation error",
@@ -305,22 +262,23 @@ const deleteReview = async (req, res) => {
     }
 
     // Check if user is authorized to delete this review
-    if (review.user.toString() !== req.userId) {
+    if (review.user_id !== req.userId) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to delete this review",
       });
     }
 
-    const bookId = review.book;
-    await Review.findByIdAndDelete(id);
+    const bookId = review.book_id;
+    await Review.deleteById(id);
 
     // Update book's average rating
     const avgRatingData = await Review.getAverageRating(bookId);
-    await Book.findByIdAndUpdate(bookId, {
-      averageRating: avgRatingData.averageRating,
-      totalRatings: avgRatingData.totalReviews,
-    });
+    await Book.updateAverageRating(
+      bookId,
+      avgRatingData.average_rating,
+      avgRatingData.total_reviews
+    );
 
     res.json({
       success: true,

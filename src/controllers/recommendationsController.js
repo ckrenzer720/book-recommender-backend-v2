@@ -7,18 +7,28 @@ const getRecommendations = async (req, res) => {
   try {
     const { limit = 10, genre } = req.query;
 
-    const filter = {};
-    if (genre) filter.genre = genre;
+    let recommendations = [];
 
-    // Get top-rated books
-    const recommendations = await Book.find(filter)
-      .sort({ averageRating: -1, totalRatings: -1 })
-      .limit(parseInt(limit))
-      .populate("addedBy", "username");
+    if (genre) {
+      recommendations = await Book.findByGenre(genre, parseInt(limit));
+    } else {
+      recommendations = await Book.getTopRated(parseInt(limit));
+    }
+
+    // Add user information to books
+    const recommendationsWithUser = await Promise.all(
+      recommendations.map(async (book) => {
+        const user = await User.findById(book.added_by);
+        return {
+          ...book,
+          addedBy: user ? { id: user.id, username: user.username } : null,
+        };
+      })
+    );
 
     res.json({
       success: true,
-      data: { recommendations },
+      data: { recommendations: recommendationsWithUser },
     });
   } catch (error) {
     console.error("Get recommendations error:", error);
@@ -46,50 +56,57 @@ const getUserRecommendations = async (req, res) => {
     }
 
     // Get user's reviewed books and their genres
-    const userReviews = await Review.find({ user: userId }).populate(
-      "book",
-      "genre averageRating"
-    );
+    const userReviews = await Review.findWithBook(userId);
 
-    const userGenres = [
-      ...new Set(userReviews.map((review) => review.book.genre)),
-    ];
-    const userPreferences = user.preferences?.favoriteGenres || [];
+    const userGenres = [...new Set(userReviews.map((review) => review.genre))];
 
-    // Combine user's reviewed genres with preferences
-    const preferredGenres = [...new Set([...userGenres, ...userPreferences])];
+    // Note: We'll need to implement user preferences in the User model
+    // For now, we'll use the genres from reviews
+    const preferredGenres = userGenres;
 
     // Get recommendations based on user's preferences
     let recommendations = [];
 
     if (preferredGenres.length > 0) {
-      recommendations = await Book.find({
-        genre: { $in: preferredGenres },
-        averageRating: { $gte: 3.5 },
-        totalRatings: { $gte: 5 },
-      })
-        .sort({ averageRating: -1, totalRatings: -1 })
-        .limit(parseInt(limit))
-        .populate("addedBy", "username");
+      // Get books from preferred genres with good ratings
+      for (const genre of preferredGenres) {
+        const genreBooks = await Book.findByGenre(genre, parseInt(limit));
+        recommendations = [...recommendations, ...genreBooks];
+      }
+
+      // Sort by rating and remove duplicates
+      recommendations = recommendations
+        .filter((book) => book.average_rating >= 3.5 && book.total_ratings >= 5)
+        .sort((a, b) => b.average_rating - a.average_rating)
+        .slice(0, parseInt(limit));
     }
 
     // If not enough recommendations, add popular books
     if (recommendations.length < limit) {
-      const additionalBooks = await Book.find({
-        _id: { $nin: recommendations.map((book) => book._id) },
-        averageRating: { $gte: 4.0 },
-        totalRatings: { $gte: 10 },
-      })
-        .sort({ averageRating: -1, totalRatings: -1 })
-        .limit(parseInt(limit) - recommendations.length)
-        .populate("addedBy", "username");
-
-      recommendations = [...recommendations, ...additionalBooks];
+      const additionalBooks = await Book.getTopRated(
+        parseInt(limit) - recommendations.length
+      );
+      const existingIds = recommendations.map((book) => book.id);
+      const newBooks = additionalBooks.filter(
+        (book) => !existingIds.includes(book.id)
+      );
+      recommendations = [...recommendations, ...newBooks];
     }
+
+    // Add user information to books
+    const recommendationsWithUser = await Promise.all(
+      recommendations.map(async (book) => {
+        const user = await User.findById(book.added_by);
+        return {
+          ...book,
+          addedBy: user ? { id: user.id, username: user.username } : null,
+        };
+      })
+    );
 
     res.json({
       success: true,
-      data: { recommendations },
+      data: { recommendations: recommendationsWithUser },
     });
   } catch (error) {
     console.error("Get user recommendations error:", error);
@@ -117,24 +134,30 @@ const getSimilarBooks = async (req, res) => {
     }
 
     // Find books with similar characteristics
-    const similarBooks = await Book.find({
-      _id: { $ne: bookId },
-      $or: [
-        { genre: targetBook.genre },
-        { author: targetBook.author },
-        { tags: { $in: targetBook.tags } },
-      ],
-      averageRating: { $gte: 3.0 },
-    })
-      .sort({ averageRating: -1, totalRatings: -1 })
-      .limit(parseInt(limit))
-      .populate("addedBy", "username");
+    // For now, we'll search by genre and author
+    const similarBooks = await Book.search(targetBook.genre, parseInt(limit));
+
+    // Filter out the target book and add author search
+    const filteredBooks = similarBooks.filter(
+      (book) => book.id !== parseInt(bookId) && book.average_rating >= 3.0
+    );
+
+    // Add user information to books
+    const similarBooksWithUser = await Promise.all(
+      filteredBooks.map(async (book) => {
+        const user = await User.findById(book.added_by);
+        return {
+          ...book,
+          addedBy: user ? { id: user.id, username: user.username } : null,
+        };
+      })
+    );
 
     res.json({
       success: true,
       data: {
-        targetBook: targetBook.getSummary(),
-        similarBooks,
+        targetBook: Book.getSummary(targetBook),
+        similarBooks: similarBooksWithUser,
       },
     });
   } catch (error) {
@@ -154,22 +177,27 @@ const generateRecommendations = async (req, res) => {
     const { limit = 10 } = req.query;
 
     // Get user's reading history
-    const userReviews = await Review.find({ user: userId }).populate(
-      "book",
-      "genre author tags averageRating"
-    );
+    const userReviews = await Review.findWithBook(userId);
 
     if (userReviews.length === 0) {
       // If no reading history, return popular books
-      const popularBooks = await Book.find()
-        .sort({ averageRating: -1, totalRatings: -1 })
-        .limit(parseInt(limit))
-        .populate("addedBy", "username");
+      const popularBooks = await Book.getTopRated(parseInt(limit));
+
+      // Add user information to books
+      const popularBooksWithUser = await Promise.all(
+        popularBooks.map(async (book) => {
+          const user = await User.findById(book.added_by);
+          return {
+            ...book,
+            addedBy: user ? { id: user.id, username: user.username } : null,
+          };
+        })
+      );
 
       return res.json({
         success: true,
         data: {
-          recommendations: popularBooks,
+          recommendations: popularBooksWithUser,
           message: "No reading history found. Showing popular books.",
         },
       });
@@ -178,21 +206,13 @@ const generateRecommendations = async (req, res) => {
     // Analyze user's preferences
     const genreCounts = {};
     const authorCounts = {};
-    const tagCounts = {};
 
     userReviews.forEach((review) => {
-      const book = review.book;
-
       // Count genres
-      genreCounts[book.genre] = (genreCounts[book.genre] || 0) + 1;
+      genreCounts[review.genre] = (genreCounts[review.genre] || 0) + 1;
 
       // Count authors
-      authorCounts[book.author] = (authorCounts[book.author] || 0) + 1;
-
-      // Count tags
-      book.tags.forEach((tag) => {
-        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-      });
+      authorCounts[review.author] = (authorCounts[review.author] || 0) + 1;
     });
 
     // Get top preferences
@@ -204,32 +224,42 @@ const generateRecommendations = async (req, res) => {
       .sort((a, b) => authorCounts[b] - authorCounts[a])
       .slice(0, 2);
 
-    const topTags = Object.keys(tagCounts)
-      .sort((a, b) => tagCounts[b] - tagCounts[a])
-      .slice(0, 5);
-
     // Find books that match user's preferences
-    const recommendedBooks = await Book.find({
-      _id: { $nin: userReviews.map((review) => review.book._id) },
-      $or: [
-        { genre: { $in: topGenres } },
-        { author: { $in: topAuthors } },
-        { tags: { $in: topTags } },
-      ],
-      averageRating: { $gte: 3.5 },
-    })
-      .sort({ averageRating: -1, totalRatings: -1 })
-      .limit(parseInt(limit))
-      .populate("addedBy", "username");
+    let recommendedBooks = [];
+    const reviewedBookIds = userReviews.map((review) => review.book_id);
+
+    for (const genre of topGenres) {
+      const genreBooks = await Book.findByGenre(genre, parseInt(limit));
+      recommendedBooks = [...recommendedBooks, ...genreBooks];
+    }
+
+    // Filter out already reviewed books and sort by rating
+    recommendedBooks = recommendedBooks
+      .filter(
+        (book) =>
+          !reviewedBookIds.includes(book.id) && book.average_rating >= 3.5
+      )
+      .sort((a, b) => b.average_rating - a.average_rating)
+      .slice(0, parseInt(limit));
+
+    // Add user information to books
+    const recommendedBooksWithUser = await Promise.all(
+      recommendedBooks.map(async (book) => {
+        const user = await User.findById(book.added_by);
+        return {
+          ...book,
+          addedBy: user ? { id: user.id, username: user.username } : null,
+        };
+      })
+    );
 
     res.json({
       success: true,
       data: {
-        recommendations: recommendedBooks,
+        recommendations: recommendedBooksWithUser,
         userPreferences: {
           topGenres,
           topAuthors,
-          topTags,
         },
       },
     });
