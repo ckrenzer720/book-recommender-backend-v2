@@ -9,7 +9,7 @@ exports.seed = async function (knex) {
       user_id: 2, // john_doe
       book_id: 1,
       rating: 5,
-      review_text:
+      comment:
         "A masterpiece of American literature. Fitzgerald's prose is absolutely beautiful and the story captures the essence of the Jazz Age perfectly.",
       is_public: true,
       created_at: new Date("2024-01-15"),
@@ -19,7 +19,7 @@ exports.seed = async function (knex) {
       user_id: 3, // jane_smith
       book_id: 1,
       rating: 4,
-      review_text:
+      comment:
         "Beautifully written but quite tragic. The characters are complex and the themes of wealth and love are timeless.",
       is_public: true,
       created_at: new Date("2024-02-20"),
@@ -31,7 +31,7 @@ exports.seed = async function (knex) {
       user_id: 1, // admin
       book_id: 2,
       rating: 5,
-      review_text:
+      comment:
         "One of the most important books ever written. Harper Lee's portrayal of racial injustice through a child's eyes is powerful and moving.",
       is_public: true,
       created_at: new Date("2024-01-10"),
@@ -41,7 +41,7 @@ exports.seed = async function (knex) {
       user_id: 2, // john_doe
       book_id: 2,
       rating: 5,
-      review_text:
+      comment:
         "A classic that everyone should read. Atticus Finch is one of literature's greatest heroes.",
       is_public: true,
       created_at: new Date("2024-03-05"),
@@ -53,7 +53,7 @@ exports.seed = async function (knex) {
       user_id: 1, // admin
       book_id: 3,
       rating: 4,
-      review_text:
+      comment:
         "Disturbing and prophetic. Orwell's vision of totalitarianism is more relevant than ever in our digital age.",
       is_public: true,
       created_at: new Date("2024-02-01"),
@@ -63,7 +63,7 @@ exports.seed = async function (knex) {
       user_id: 3, // jane_smith
       book_id: 3,
       rating: 3,
-      review_text:
+      comment:
         "Interesting concept but quite depressing. The surveillance themes are definitely thought-provoking.",
       is_public: true,
       created_at: new Date("2024-01-25"),
@@ -75,7 +75,7 @@ exports.seed = async function (knex) {
       user_id: 2, // john_doe
       book_id: 4,
       rating: 5,
-      review_text:
+      comment:
         "A delightful adventure story! Tolkien's world-building is incredible and Bilbo's journey is both exciting and heartwarming.",
       is_public: true,
       created_at: new Date("2024-02-15"),
@@ -85,7 +85,7 @@ exports.seed = async function (knex) {
       user_id: 1, // admin
       book_id: 4,
       rating: 4,
-      review_text:
+      comment:
         "A charming fantasy novel that's perfect for readers of all ages. The characters are memorable and the story is engaging.",
       is_public: true,
       created_at: new Date("2024-03-10"),
@@ -97,7 +97,7 @@ exports.seed = async function (knex) {
       user_id: 3, // jane_smith
       book_id: 5,
       rating: 4,
-      review_text:
+      comment:
         "Fast-paced and entertaining! The mystery keeps you guessing and the historical elements are fascinating.",
       is_public: true,
       created_at: new Date("2024-02-28"),
@@ -107,7 +107,7 @@ exports.seed = async function (knex) {
       user_id: 2, // john_doe
       book_id: 5,
       rating: 3,
-      review_text:
+      comment:
         "Entertaining thriller with an interesting premise, though some of the historical claims are questionable.",
       is_public: true,
       created_at: new Date("2024-01-30"),
@@ -117,7 +117,7 @@ exports.seed = async function (knex) {
       user_id: 1, // admin
       book_id: 5,
       rating: 2,
-      review_text:
+      comment:
         "The plot is engaging but the writing style is quite formulaic. Good for a quick read but not particularly memorable.",
       is_public: false, // Private review
       created_at: new Date("2024-03-01"),
@@ -129,7 +129,7 @@ exports.seed = async function (knex) {
       user_id: 1, // admin
       book_id: 6,
       rating: 5,
-      review_text:
+      comment:
         "Jane Austen's wit and social commentary are unmatched. Elizabeth Bennet is one of literature's most beloved heroines.",
       is_public: true,
       created_at: new Date("2024-01-20"),
@@ -139,7 +139,7 @@ exports.seed = async function (knex) {
       user_id: 3, // jane_smith
       book_id: 6,
       rating: 4,
-      review_text:
+      comment:
         "A delightful romance with sharp social commentary. The dialogue is brilliant and the characters are unforgettable.",
       is_public: true,
       created_at: new Date("2024-02-10"),
@@ -151,7 +151,7 @@ exports.seed = async function (knex) {
       user_id: 2, // john_doe
       book_id: 7,
       rating: 5,
-      review_text:
+      comment:
         "The greatest fantasy epic ever written. Tolkien's world-building is unparalleled and the story is epic in every sense.",
       is_public: true,
       created_at: new Date("2024-01-05"),
@@ -161,7 +161,7 @@ exports.seed = async function (knex) {
       user_id: 1, // admin
       book_id: 7,
       rating: 5,
-      review_text:
+      comment:
         "A masterpiece of fantasy literature. The depth of the world and the complexity of the characters is extraordinary.",
       is_public: true,
       created_at: new Date("2024-02-25"),
@@ -173,7 +173,7 @@ exports.seed = async function (knex) {
       user_id: 3, // jane_smith
       book_id: 8,
       rating: 4,
-      review_text:
+      comment:
         "A gripping psychological thriller that keeps you guessing until the very end. The unreliable narrator technique is brilliantly executed.",
       is_public: true,
       created_at: new Date("2024-01-30"),
@@ -183,7 +183,7 @@ exports.seed = async function (knex) {
       user_id: 2, // john_doe
       book_id: 8,
       rating: 3,
-      review_text:
+      comment:
         "Well-written thriller with interesting characters, but quite dark and disturbing. Not for the faint of heart.",
       is_public: true,
       created_at: new Date("2024-03-15"),
@@ -195,7 +195,7 @@ exports.seed = async function (knex) {
       user_id: 2, // john_doe
       book_id: 9,
       rating: 4,
-      review_text:
+      comment:
         "A fantastic science fiction novel that's both scientifically accurate and incredibly entertaining. Mark Watney is a great protagonist.",
       is_public: true,
       created_at: new Date("2024-02-05"),
@@ -205,7 +205,7 @@ exports.seed = async function (knex) {
       user_id: 1, // admin
       book_id: 9,
       rating: 4,
-      review_text:
+      comment:
         "Excellent hard science fiction with a great sense of humor. The problem-solving aspects are fascinating.",
       is_public: true,
       created_at: new Date("2024-01-18"),
@@ -217,7 +217,7 @@ exports.seed = async function (knex) {
       user_id: 1, // admin
       book_id: 10,
       rating: 4,
-      review_text:
+      comment:
         "A fascinating overview of human history from a unique perspective. Harari's insights are thought-provoking and well-researched.",
       is_public: true,
       created_at: new Date("2024-02-12"),
@@ -227,7 +227,7 @@ exports.seed = async function (knex) {
       user_id: 2, // john_doe
       book_id: 10,
       rating: 3,
-      review_text:
+      comment:
         "Interesting concepts but sometimes oversimplified. Good introduction to big history, though some claims are controversial.",
       is_public: true,
       created_at: new Date("2024-03-08"),
@@ -239,7 +239,7 @@ exports.seed = async function (knex) {
       user_id: 3, // jane_smith
       book_id: 11,
       rating: 4,
-      review_text:
+      comment:
         "A clever psychological thriller with a great twist. The Greek mythology elements add an interesting layer to the story.",
       is_public: true,
       created_at: new Date("2024-02-22"),
@@ -249,7 +249,7 @@ exports.seed = async function (knex) {
       user_id: 1, // admin
       book_id: 11,
       rating: 3,
-      review_text:
+      comment:
         "Decent thriller with a good premise, though the ending felt a bit rushed. The psychological elements are well done.",
       is_public: true,
       created_at: new Date("2024-01-28"),
@@ -261,7 +261,7 @@ exports.seed = async function (knex) {
       user_id: 2, // john_doe
       book_id: 12,
       rating: 5,
-      review_text:
+      comment:
         "A masterpiece of science fiction. Herbert's world-building is incredible and the political intrigue is fascinating.",
       is_public: true,
       created_at: new Date("2024-01-12"),
@@ -271,7 +271,7 @@ exports.seed = async function (knex) {
       user_id: 1, // admin
       book_id: 12,
       rating: 4,
-      review_text:
+      comment:
         "Epic science fiction with complex themes of politics, religion, and ecology. A challenging but rewarding read.",
       is_public: true,
       created_at: new Date("2024-03-03"),

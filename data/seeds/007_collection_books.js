@@ -8,21 +8,18 @@ exports.seed = async function (knex) {
     {
       collection_id: 1,
       book_id: 1, // The Great Gatsby
-      added_at: new Date("2024-01-01"),
       created_at: new Date("2024-01-01"),
       updated_at: new Date("2024-01-01"),
     },
     {
       collection_id: 1,
       book_id: 2, // To Kill a Mockingbird
-      added_at: new Date("2024-01-01"),
       created_at: new Date("2024-01-01"),
       updated_at: new Date("2024-01-01"),
     },
     {
       collection_id: 1,
       book_id: 6, // Pride and Prejudice
-      added_at: new Date("2024-01-01"),
       created_at: new Date("2024-01-01"),
       updated_at: new Date("2024-01-01"),
     },
@@ -31,7 +28,6 @@ exports.seed = async function (knex) {
     {
       collection_id: 2,
       book_id: 3, // 1984
-      added_at: new Date("2024-02-01"),
       created_at: new Date("2024-02-01"),
       updated_at: new Date("2024-02-01"),
     },
@@ -40,14 +36,12 @@ exports.seed = async function (knex) {
     {
       collection_id: 3,
       book_id: 4, // The Hobbit
-      added_at: new Date("2024-01-15"),
       created_at: new Date("2024-01-15"),
       updated_at: new Date("2024-01-15"),
     },
     {
       collection_id: 3,
       book_id: 7, // The Lord of the Rings
-      added_at: new Date("2024-01-15"),
       created_at: new Date("2024-01-15"),
       updated_at: new Date("2024-01-15"),
     },
@@ -56,35 +50,30 @@ exports.seed = async function (knex) {
     {
       collection_id: 4,
       book_id: 1, // The Great Gatsby
-      added_at: new Date("2024-02-15"),
       created_at: new Date("2024-02-15"),
       updated_at: new Date("2024-02-15"),
     },
     {
       collection_id: 4,
       book_id: 2, // To Kill a Mockingbird
-      added_at: new Date("2024-02-15"),
       created_at: new Date("2024-02-15"),
       updated_at: new Date("2024-02-15"),
     },
     {
       collection_id: 4,
       book_id: 4, // The Hobbit
-      added_at: new Date("2024-02-15"),
       created_at: new Date("2024-02-15"),
       updated_at: new Date("2024-02-15"),
     },
     {
       collection_id: 4,
       book_id: 7, // The Lord of the Rings
-      added_at: new Date("2024-02-15"),
       created_at: new Date("2024-02-15"),
       updated_at: new Date("2024-02-15"),
     },
     {
       collection_id: 4,
       book_id: 12, // Dune
-      added_at: new Date("2024-02-15"),
       created_at: new Date("2024-02-15"),
       updated_at: new Date("2024-02-15"),
     },
@@ -93,21 +82,18 @@ exports.seed = async function (knex) {
     {
       collection_id: 5,
       book_id: 5, // The Da Vinci Code
-      added_at: new Date("2024-01-20"),
       created_at: new Date("2024-01-20"),
       updated_at: new Date("2024-01-20"),
     },
     {
       collection_id: 5,
       book_id: 8, // Gone Girl
-      added_at: new Date("2024-01-20"),
       created_at: new Date("2024-01-20"),
       updated_at: new Date("2024-01-20"),
     },
     {
       collection_id: 5,
       book_id: 11, // The Silent Patient
-      added_at: new Date("2024-01-20"),
       created_at: new Date("2024-01-20"),
       updated_at: new Date("2024-01-20"),
     },
@@ -116,28 +102,24 @@ exports.seed = async function (knex) {
     {
       collection_id: 6,
       book_id: 1, // The Great Gatsby
-      added_at: new Date("2024-01-01"),
       created_at: new Date("2024-01-01"),
       updated_at: new Date("2024-01-01"),
     },
     {
       collection_id: 6,
       book_id: 3, // 1984
-      added_at: new Date("2024-01-01"),
       created_at: new Date("2024-01-01"),
       updated_at: new Date("2024-01-01"),
     },
     {
       collection_id: 6,
       book_id: 6, // Pride and Prejudice
-      added_at: new Date("2024-01-01"),
       created_at: new Date("2024-01-01"),
       updated_at: new Date("2024-01-01"),
     },
     {
       collection_id: 6,
       book_id: 10, // Sapiens
-      added_at: new Date("2024-01-01"),
       created_at: new Date("2024-01-01"),
       updated_at: new Date("2024-01-01"),
     },
