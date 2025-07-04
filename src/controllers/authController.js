@@ -38,10 +38,8 @@ const register = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "User registered successfully",
-      data: {
-        user: User.toPublicJSON(user),
-        token,
-      },
+      user: User.toPublicJSON(user),
+      token,
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -56,10 +54,12 @@ const register = async (req, res) => {
 // Login user
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, email, password } = req.body;
 
-    // Find user by email
-    const user = await User.findByEmail(email);
+    // Find user by email or username
+    const user = email
+      ? await User.findByEmail(email)
+      : await User.findByUsername(username);
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -85,10 +85,8 @@ const login = async (req, res) => {
     res.json({
       success: true,
       message: "Login successful",
-      data: {
-        user: User.toPublicJSON(user),
-        token,
-      },
+      user: User.toPublicJSON(user),
+      token,
     });
   } catch (error) {
     console.error("Login error:", error);

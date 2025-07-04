@@ -26,6 +26,8 @@ class User {
 
   // Find user by email
   static async findByEmail(email) {
+    if (!email) return null;
+
     const [user] = await db(this.tableName)
       .where({ email: email.toLowerCase() })
       .select("*");
